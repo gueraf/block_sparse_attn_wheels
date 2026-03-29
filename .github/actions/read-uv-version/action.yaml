@@ -1,0 +1,16 @@
+---
+name: Read uv version
+description: Read the uv version from .uv-version file
+
+outputs:
+  version:
+    description: The uv version from .uv-version
+    value: ${{ steps.read.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+  - name: Read .uv-version
+    id: read
+    shell: bash
+    run: echo "version=$(cat .uv-version)" >> "$GITHUB_OUTPUT"

@@ -1,0 +1,11 @@
+[project]
+name = "bsa-standalone"
+version = "0.1.0"
+description = "Standalone builder for Block-Sparse Attention"
+readme = "README.md"
+requires-python = ">=3.10.12,<3.11"
+dependencies = [
+    "torch"
+]
+
+
