@@ -47,8 +47,8 @@ fi
 echo "Obtained registration token: ${REG_TOKEN}"
 
 # Remove existing container if it exists (force)
-if docker ps -a --format '{{.Names}}' | grep -qx gh-runner; then
-  echo "Removing existing gh-runner container..."
+if docker ps -a --format '{{.Names}}' | grep -qx gh-runner-bsa; then
+  echo "Removing existing gh-runner-bsa container..."
   docker rm -f gh-runner-bsa >/dev/null
 fi
 

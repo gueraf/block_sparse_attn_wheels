@@ -18,13 +18,18 @@ defaults:
     shell: bash -x -e -u -o pipefail {0}
 
 jobs:
-  build-and-release:
-    runs-on: [self-hosted, x64]
+  build:
+    runs-on: [self-hosted, "${{ matrix.runner-arch }}"]
     permissions:
       contents: write
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.10"]
+        include:
+          - runner-arch: X64
+            python-version: "3.10"
+          - runner-arch: ARM64
+            python-version: "3.10"
 
     steps:
       - name: Checkout repository
@@ -53,7 +58,7 @@ jobs:
         run: |
           bash scripts/build_block_sparse_attn.sh
 
-      - name: 🔍 Find Wheels
+      - name: 🔍 Find wheel
         run: |
           wheels=$(ls ${{ github.workspace }}/Block-Sparse-Attention/dist/block_sparse_attn-*.whl 2>/dev/null)
           if [ -z "$wheels" ]; then
@@ -64,27 +69,36 @@ jobs:
           echo "$wheels"
           wheel_path=$(echo "$wheels" | head -n1)
           echo "wheel_path=${wheel_path}" >> $GITHUB_ENV
-          echo "wheel_name=$(basename ${wheel_path})" >> $GITHUB_ENV
 
-      - name: 🏷️ Create Release
-        id: create_release
-        if: inputs.upload-to-release
-        uses: actions/create-release@v1
+      - name: 📤 Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.runner-arch }}
+          path: ${{ env.wheel_path }}
+
+  release:
+    needs: build
+    if: inputs.upload-to-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 📥 Download wheel artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: wheels/
+          merge-multiple: false
+
+      - name: 🏷️ Create Release and upload wheels
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: build_block_sparse_attn-${{ github.sha }}
-          release_name: Build Block-Sparse Attention Wheels (${{ github.sha }})
-          commitish: ${{ github.sha }}
-          prerelease: true
-
-      - name: 🚀 Upload Release Asset
-        if: inputs.upload-to-release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ env.wheel_path }}
-          asset_name: ${{ env.wheel_name }}
-          asset_content_type: application/octet-stream
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tag="build_block_sparse_attn-${{ github.sha }}"
+          gh release create "${tag}" \
+            --repo "${GH_REPO}" \
+            --title "Build Block-Sparse Attention Wheels (${{ github.sha }})" \
+            --target "${{ github.sha }}" \
+            --prerelease \
+            wheels/**/*.whl
